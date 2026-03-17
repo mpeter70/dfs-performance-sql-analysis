@@ -94,6 +94,14 @@ This project includes 10 analytical queries demonstrating:
 9. **Year-over-Year Performance** - Annual progression and scaling patterns
 10. **Cumulative Profit Over Time** - Running total with ROI tracking
 
+### Methodology Notes
+MME (Mass Multi-Entry) tournament strategy intentionally distributes 
+entries across lineup variations, meaning a percentage of non-cashing 
+entries is built into the expected value model — not a performance flaw. 
+Sports with negative ROI (Soccer, Tennis, iRacing) represent deliberate 
+small-sample market tests that were discontinued after failing to show 
+exploitable edge. This is reflected in Key Business Lesson #1: 
+Specialization > Diversification.
 [View all queries →](sql/dfs_analysis_queries.sql)
 
 ## Business Applications
