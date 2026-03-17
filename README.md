@@ -102,6 +102,7 @@ Sports with negative ROI (Soccer, Tennis, iRacing) represent deliberate
 small-sample market tests that were discontinued after failing to show 
 exploitable edge. This is reflected in Key Business Lesson #1: 
 Specialization > Diversification.
+
 [View all queries →](sql/dfs_analysis_queries.sql)
 
 ## Business Applications
