@@ -41,56 +41,64 @@ ORDER BY SUM(profit) DESC;
 -- ============================================
 -- QUERY 3: Performance by Entry Fee Bracket
 -- ============================================
--- Demonstrates: CASE for categorization, HAVING clause
+-- Demonstrates: CASE for categorization, dollar-weighted vs. per-entry ROI
 
-SELECT 
-    CASE 
-        WHEN Entry_Fee < 5 THEN 'Low Stakes ($0-$5)'
-        WHEN Entry_Fee < 20 THEN 'Mid Stakes ($5-$20)'
+SELECT
+    CASE
+        WHEN Entry_Fee < 5   THEN 'Low Stakes ($0-$5)'
+        WHEN Entry_Fee < 20  THEN 'Mid Stakes ($5-$20)'
         WHEN Entry_Fee < 100 THEN 'High Stakes ($20-$100)'
         ELSE 'Premium ($100+)'
-    END as stake_level,
-    COUNT(*) as contests,
-    FORMAT(SUM(profit), 'C', 'en-US') as total_profit,
-    ROUND(AVG(roi_pct), 2) as avg_roi_pct,
-    ROUND(MIN(roi_pct), 2) as worst_roi,
-    ROUND(MAX(roi_pct), 2) as best_roi
+    END AS stake_level,
+    COUNT(*) AS contests,
+    FORMAT(SUM(Entry_Fee), 'C', 'en-US')      AS total_invested,
+    FORMAT(SUM(total_winnings), 'C', 'en-US') AS total_winnings,
+    FORMAT(SUM(profit), 'C', 'en-US')         AS total_profit,
+    CAST((SUM(total_winnings) / NULLIF(SUM(Entry_Fee), 0) - 1) * 100 AS DECIMAL(10,2)) AS portfolio_roi_pct,  -- dollar-weighted: use this
+    CAST(AVG(roi_pct) AS DECIMAL(10,2)) AS avg_entry_roi_pct,   -- each entry counts equally
+    CAST(MIN(roi_pct) AS DECIMAL(10,2)) AS worst_entry_roi,
+    CAST(MAX(roi_pct) AS DECIMAL(10,2)) AS best_entry_roi
 FROM contest_history
 WHERE Entry_Fee > 0
-GROUP BY CASE 
-    WHEN Entry_Fee < 5 THEN 'Low Stakes ($0-$5)'
-    WHEN Entry_Fee < 20 THEN 'Mid Stakes ($5-$20)'
-    WHEN Entry_Fee < 100 THEN 'High Stakes ($20-$100)'
-    ELSE 'Premium ($100+)'
-END
+GROUP BY
+    CASE
+        WHEN Entry_Fee < 5   THEN 'Low Stakes ($0-$5)'
+        WHEN Entry_Fee < 20  THEN 'Mid Stakes ($5-$20)'
+        WHEN Entry_Fee < 100 THEN 'High Stakes ($20-$100)'
+        ELSE 'Premium ($100+)'
+    END
 ORDER BY SUM(profit) DESC;
 
 -- ============================================
 -- QUERY 4: Performance by Tournament Size
 -- ============================================
--- Demonstrates: Range-based categorization, calculated averages
+-- Demonstrates: Range-based categorization, dollar-weighted vs. per-entry ROI
 
-SELECT 
-    CASE 
-        WHEN Contest_Entries_Clean < 10 THEN 'Head-to-Head (2-9)'
-        WHEN Contest_Entries_Clean < 100 THEN 'Small Field (10-99)'
-        WHEN Contest_Entries_Clean < 1000 THEN 'Medium Field (100-999)'
+SELECT
+    CASE
+        WHEN Contest_Entries_Clean < 10    THEN 'Head-to-Head (2-9)'
+        WHEN Contest_Entries_Clean < 100   THEN 'Small Field (10-99)'
+        WHEN Contest_Entries_Clean < 1000  THEN 'Medium Field (100-999)'
         WHEN Contest_Entries_Clean < 10000 THEN 'Large Field (1K-10K)'
         ELSE 'Massive Field (10K+)'
-    END as field_size_category,
-    COUNT(*) as contests,
-    AVG(Contest_Entries_Clean) as avg_field_size,
-    FORMAT(SUM(profit), 'C', 'en-US') as total_profit,
-    ROUND(AVG(roi_pct), 2) as avg_roi_pct
+    END AS field_size_category,
+    COUNT(*) AS contests,
+    AVG(Contest_Entries_Clean) AS avg_field_size,
+    FORMAT(SUM(Entry_Fee), 'C', 'en-US')      AS total_invested,
+    FORMAT(SUM(total_winnings), 'C', 'en-US') AS total_winnings,
+    FORMAT(SUM(profit), 'C', 'en-US')         AS total_profit,
+    CAST((SUM(total_winnings) / NULLIF(SUM(Entry_Fee), 0) - 1) * 100 AS DECIMAL(10,2)) AS portfolio_roi_pct,  -- dollar-weighted: use this
+    CAST(AVG(roi_pct) AS DECIMAL(10,2)) AS avg_entry_roi_pct   -- each entry counts equally
 FROM contest_history
 WHERE Contest_Entries_Clean IS NOT NULL
-GROUP BY CASE 
-    WHEN Contest_Entries_Clean < 10 THEN 'Head-to-Head (2-9)'
-    WHEN Contest_Entries_Clean < 100 THEN 'Small Field (10-99)'
-    WHEN Contest_Entries_Clean < 1000 THEN 'Medium Field (100-999)'
-    WHEN Contest_Entries_Clean < 10000 THEN 'Large Field (1K-10K)'
-    ELSE 'Massive Field (10K+)'
-END
+GROUP BY
+    CASE
+        WHEN Contest_Entries_Clean < 10    THEN 'Head-to-Head (2-9)'
+        WHEN Contest_Entries_Clean < 100   THEN 'Small Field (10-99)'
+        WHEN Contest_Entries_Clean < 1000  THEN 'Medium Field (100-999)'
+        WHEN Contest_Entries_Clean < 10000 THEN 'Large Field (1K-10K)'
+        ELSE 'Massive Field (10K+)'
+    END
 ORDER BY avg_field_size;
 
 -- ============================================
@@ -131,35 +139,48 @@ GROUP BY FORMAT(Contest_Date_EST, 'yyyy-MM')
 ORDER BY FORMAT(Contest_Date_EST, 'yyyy-MM');
 
 -- ============================================
--- QUERY 7: Top Contest Types by Profitability
+-- QUERY 7: Profitability by Contest Type
 -- ============================================
--- Demonstrates: LIKE pattern matching, HAVING clause filtering
+-- Demonstrates: CTE, rule-ordered CASE classification, LIKE pattern matching,
+--               HAVING filtering, dollar-weighted ROI
+-- Rule order matters (first match wins): structure (field size) first, then
+-- cash-game keywords, then tournament markers. Leaves 80 entries (0.28%) as 'Other'.
 
+WITH classified AS (
+    SELECT
+        Sport,
+        Entry_Fee,
+        total_winnings,
+        profit,
+        roi_pct,
+        CASE
+            WHEN Contest_Entries_Clean = 2                          THEN 'Head-to-Head'
+            WHEN Entry LIKE '%Double Up%'                           THEN 'Double Up'
+            WHEN Entry LIKE '%50/50%' OR Entry LIKE '%50-50%'       THEN '50/50'
+            WHEN Entry LIKE '%Triple Up%' OR Entry LIKE '%Quintuple Up%'
+              OR Entry LIKE '%Multiplier%'                          THEN 'Multiplier (Triple/Quintuple Up)'
+            WHEN Contest_Entries_Clean < 20                         THEN 'Small League (3-19)'
+            WHEN Entry LIKE '%to 1st%' OR Entry LIKE '%Entry Max%'
+              OR Entry LIKE '%Max Entry%' OR Entry LIKE '%Single Entry%'
+              OR Entry LIKE '%GPP%' OR Entry LIKE '%Million%'
+              OR Contest_Entries_Clean >= 100                       THEN 'Tournament (GPP)'
+            ELSE 'Other'
+        END AS contest_type
+    FROM contest_history
+    WHERE Entry IS NOT NULL
+)
 SELECT TOP 15
     Sport,
-    CASE 
-        WHEN Entry LIKE '%Double Up%' THEN 'Double Up'
-        WHEN Entry LIKE '%Head-to-Head%' THEN 'Head-to-Head'
-        WHEN Entry LIKE '%GPP%' OR Entry LIKE '%Million%' THEN 'GPP/Major Tournament'
-        WHEN Entry LIKE '%50/50%' THEN '50/50'
-        WHEN Entry LIKE '%Multiplier%' THEN 'Multiplier'
-        ELSE 'Other'
-    END as contest_type,
-    COUNT(*) as entries,
-    FORMAT(SUM(profit), 'C', 'en-US') as total_profit,
-    ROUND(AVG(roi_pct), 2) as avg_roi_pct
-FROM contest_history
-WHERE Entry IS NOT NULL
-GROUP BY Sport, 
-    CASE 
-        WHEN Entry LIKE '%Double Up%' THEN 'Double Up'
-        WHEN Entry LIKE '%Head-to-Head%' THEN 'Head-to-Head'
-        WHEN Entry LIKE '%GPP%' OR Entry LIKE '%Million%' THEN 'GPP/Major Tournament'
-        WHEN Entry LIKE '%50/50%' THEN '50/50'
-        WHEN Entry LIKE '%Multiplier%' THEN 'Multiplier'
-        ELSE 'Other'
-    END
-HAVING COUNT(*) > 10  -- Only show contest types with 10+ entries
+    contest_type,
+    COUNT(*) AS entries,
+    FORMAT(SUM(Entry_Fee), 'C', 'en-US')      AS total_invested,
+    FORMAT(SUM(total_winnings), 'C', 'en-US') AS total_winnings,
+    FORMAT(SUM(profit), 'C', 'en-US')         AS total_profit,
+    CAST((SUM(total_winnings) / NULLIF(SUM(Entry_Fee), 0) - 1) * 100 AS DECIMAL(10,2)) AS portfolio_roi_pct,
+    CAST(AVG(roi_pct) AS DECIMAL(10,2)) AS avg_entry_roi_pct
+FROM classified
+GROUP BY Sport, contest_type
+HAVING COUNT(*) >= 10  -- Only show contest types with 10+ entries
 ORDER BY SUM(profit) DESC;
 
 -- ============================================

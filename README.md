@@ -47,8 +47,9 @@ This mirrors real business analytics scenarios: customer behavior analysis, mark
 - **Total Invested:** $181,392.89
 - **Total Winnings:** $295,206.48
 - **Net Profit:** $113,813.59
-- **ROI:** 62.74%
-- **Win Rate:** 47.75% (cashed in nearly half of all contests)
+- **ROI:** 62.74% (portfolio ROI: total winnings ÷ total entry fees − 1)
+- **Profit Rate:** 35.80% (10,199 entries returned more than their entry fee)
+- **Placement Rate:** 47.75% (entries that cashed or finished top 100)
 
 ### Sport-Specific Performance
 - **NFL:** 127.56% ROI ($57,281 profit) - 50% of total profit from one sport
@@ -58,20 +59,33 @@ This mirrors real business analytics scenarios: customer behavior analysis, mark
 
 ### Strategic Insights
 
-**Stake Level Optimization:**
-- Premium tournaments ($100+): 78.48% ROI despite only 1% of volume
-- Mid-stakes ($5-$20): 63.49% ROI across 32% of volume - optimal balance
-- High-stakes ($20-$100): Only losing tier (-$104) - avoided appropriately
+**Stake Level Optimization** (portfolio ROI):
+- Premium ($100+): 114.26% ROI, $60,270 profit from only 1% of volume
+- Mid-stakes ($5-$20): 63.11% ROI, $49,042 profit across 32% of volume
+- Low-stakes ($0-$5): 15.88% ROI across 63% of volume
+- High-stakes ($20-$100): -0.46% ROI (-$104) - the only losing tier
 
-**Field Size Performance:**
-- Large fields (1K-10K players): $55,482 profit - 49% of total profit from 7% of volume
-- Massive fields (10K+ players): 57.10% ROI across 64% of volume
-- Head-to-head contests: 1.81% ROI - worst performance
+![Query 3: performance by entry fee tier](query3_entry_fee_tiers.png)
+
+**Contest Type Performance** (portfolio ROI):
+- Tournaments (GPPs) produced about 98% of total profit: NFL 172.54% ROI ($54,225), MLB 80.93% ($32,305), NBA 43.52% ($21,998)
+- Cash games (50/50s, Double Ups, Triple/Quintuple Ups, head-to-heads) were near break-even, each line earning under $1,800
+- Head-to-head: 7.32% ROI in MLB (1,640 entries), 26.00% in NFL (844 entries)
+
+![Query 7: profitability by contest type](query7_contest_types.png)
+
+**Field Size Performance** (portfolio ROI):
+- Large fields (1K-10K players): 151.07% ROI, $55,482 profit - 49% of total profit from 7% of volume
+- Massive fields (10K+ players): 60.51% ROI, $44,979 profit across 64% of volume
+- Small and medium fields (10-999 players): 18-20% ROI
+- Head-to-head (2-9 players): 18.87% ROI, $3,124 profit across 12% of volume
+
+![Query 4: performance by field size](query4_field_size.png)
 
 **Win Distribution:**
-- **7.68% first-place finish rate** (vs. <1% for typical players)
+- **7.68% first-place finish rate** (2,187 entries; includes head-to-head and small-league wins)
 - 80% of total profit from first-place finishes alone
-- Top-3 finish rate: 14.28% (5x better than average player)
+- Top-3 finish rate: 14.28%
 
 **Year-over-Year Evolution:**
 - 2015-2017: Learning phase (-$478 total)
@@ -95,6 +109,10 @@ This project includes 10 analytical queries demonstrating:
 10. **Cumulative Profit Over Time** - Running total with ROI tracking
 
 ### Methodology Notes
+**ROI.** All ROI figures in Key Findings are portfolio (dollar-weighted) ROI: total winnings ÷ total entry fees − 1. Queries 3, 4 and 7 also report the average of per-entry ROI for comparison; that figure weights a $1 entry the same as a $333 entry and is not used for conclusions.
+
+**Contest types.** Query 7 classifies each entry by structure first (field size of 2 = head-to-head), then by name keywords (Double Up, 50/50 or 50-50, Triple/Quintuple Up), then by tournament markers (payout tags, entry limits, or 100+ entries). This leaves 80 entries (0.28%) unclassified. See [DATA_DICTIONARY.md](DATA_DICTIONARY.md).
+
 MME (Mass Multi-Entry) tournament strategy intentionally distributes 
 entries across lineup variations, meaning a percentage of non-cashing 
 entries is built into the expected value model — not a performance flaw. 
@@ -103,7 +121,7 @@ small-sample market tests that were discontinued after failing to show
 exploitable edge. This is reflected in Key Business Lesson #1: 
 Specialization > Diversification.
 
-[View all queries →](sql/dfs_analysis_queries.sql)
+[View all queries →](dfs_analysis_queries.sql)
 
 ## Business Applications
 
@@ -119,7 +137,7 @@ The analytical techniques used here apply directly to:
 ## Key Business Lessons
 
 ### 1. Specialization > Diversification
-96% of profit came from 4 core sports (NFL, MLB, NBA, NHL) while 9 experimental sports generated cumulative losses of $6,420.
+96% of profit came from 4 core sports (NFL, MLB, NBA, NHL) while 9 experimental sports generated cumulative losses of $6,420. By contest type, tournaments produced about 98% of profit while cash games were near break-even.
 
 ### 2. Asymmetric Upside Strategy
 Optimizing for "win rate" (7.68% first-place finishes) rather than "cash rate" created 2.17x return ratio where big wins more than covered frequent small losses.
@@ -133,17 +151,11 @@ After COVID disrupted market in 2020, systematic testing (2,975 contests) confir
 ## Repository Structure
 ```
 dfs-performance-sql-analysis/
-├── README.md                          # This file
-├── sql/
-│   └── dfs_analysis_queries.sql      # All 10 analytical queries
-├── screenshots/
-│   ├── query1_overall_summary.png
-│   ├── query2_sport_performance.png
-│   └── ... (all 10 query screenshots)
-└── results/
-    ├── query1_results.xlsx
-    ├── query2_results.xlsx
-    └── ... (all 10 query result exports)
+├── README.md                  # This file
+├── DATA_DICTIONARY.md         # Fields, metric definitions, query-to-field map
+├── dfs_analysis_queries.sql   # All 10 analytical queries
+├── queryN_*.png               # Query result screenshots
+└── queryN_results.xlsx        # Query result exports
 ```
 
 ## Next Steps
